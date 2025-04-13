@@ -296,3 +296,8 @@ void remove_hunt(const char *hunt_id) {
 
     printf("Hunt '%s' removed.\n", hunt_id);
 }
+
+
+
+//easter egg
+//toptop paste
