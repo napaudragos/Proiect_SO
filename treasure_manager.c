@@ -58,6 +58,8 @@ void add(int hunt_id, Treasure new_treasure) {
 
 int main() {
     Treasure t1 = {12, "Raian", 12.34, 56.78, "Follow the river to the old oak tree.", 100};
+    Treasure t2 = {12, "Bogdan", 12.34, 56.78, "Follow the river to the old oak bambus.", 100};
     add(111, t1);
+    add(111, t2);
     return 0;
 }
