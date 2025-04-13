@@ -95,7 +95,7 @@ void create_symlink(const char *hunt_id) {
     snprintf(target, sizeof(target), "%s/logged_hunt", hunt_id);
     snprintf(link_name, sizeof(link_name), "logged_hunt-%s", hunt_id);
 
-#ifdef _WIN32
+
     DWORD attrs = GetFileAttributesA(target);
     if (attrs == INVALID_FILE_ATTRIBUTES) {
         fprintf(stderr, "Target '%s' does not exist\n", target);
@@ -119,12 +119,7 @@ void create_symlink(const char *hunt_id) {
         printf("Symlink created: %s → %s\n", link_name, target);
     }
 
-#else
-    unlink(link_name);
-    if (symlink(target, link_name) == -1) {
-        perror("symlink");
-    }
-#endif
+
 }
 
 void add_treasure(const char* hunt_id) {
