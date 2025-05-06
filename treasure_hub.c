@@ -39,3 +39,9 @@ void startMonitor(void)
 
     printf("Monitor started with PID %d\n", monitor_pid);
 }
+
+int main()
+{
+
+    
+}
