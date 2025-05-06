@@ -36,41 +36,51 @@ void remove_treasure(const char *hunt_id, int treasure_id);
 void remove_hunt(const char *hunt_id);
 void log_operation(const char *hunt_id, const char *message);
 void create_symlink(const char *hunt_id);
+void list_hunts();
 
-int main(int argc, char *argv[]) {
-    if (argc < 3) {
+int main(int argc, char **argv)
+{
+    
+    if (argc < 2 || (strcmp(argv[1], "--list_hunts") != 0 && argc < 3))
+    {
         fprintf(stderr, "Usage:\n"
                         "--add <hunt_id>\n"
                         "--list <hunt_id>\n"
                         "--view <hunt_id> <treasure_id>\n"
                         "--remove_treasure <hunt_id> <treasure_id>\n"
-                        "--remove_hunt <hunt_id>\n");
-        exit(EXIT_FAILURE);
+                        "--remove_hunt <hunt_id>\n"
+                        "--list_hunts\n");
+        exit(-1);
     }
-
-    if (strcmp(argv[1], "--add") == 0) {
+    if (strcmp(argv[1], "--add") == 0)
+    {
         add_treasure(argv[2]);
-    } else if (strcmp(argv[1], "--list") == 0) {
-        list_treasures(argv[2]);
-    } else if (strcmp(argv[1], "--view") == 0) {
-        if (argc < 4) {
-            fprintf(stderr, "Missing treasure ID\n");
-            exit(EXIT_FAILURE);
-        }
-        view_treasure(argv[2], atoi(argv[3]));
-    } else if (strcmp(argv[1], "--remove_treasure") == 0) {
-        if (argc < 4) {
-            fprintf(stderr, "Missing treasure ID\n");
-            exit(EXIT_FAILURE);
-        }
-        remove_treasure(argv[2], atoi(argv[3]));
-    } else if (strcmp(argv[1], "--remove_hunt") == 0) {
-        remove_hunt(argv[2]);
-    } else {
-        fprintf(stderr, "Unknown command\n");
-        exit(EXIT_FAILURE);
     }
-
+    else if (strcmp(argv[1], "--list") == 0)
+    {
+        list_treasures(argv[2]);
+    }
+    else if (strcmp(argv[1], "--view") == 0)
+    {
+        view_treasure(argv[2], atoi(argv[3]));
+    }
+    else if (strcmp(argv[1], "--remove_treasure") == 0)
+    {
+        remove_treasure(argv[2], atoi(argv[3]));
+    }
+    else if (strcmp(argv[1], "--remove_hunt") == 0)
+    {
+        remove_hunt(argv[2]);
+    }
+    else if (strcmp(argv[1], "--list_hunts") == 0)
+    {
+        list_hunts();
+    }
+    else
+    {
+        fprintf(stderr, "Invalid command\n");
+        exit(-1);
+    }
     return 0;
 }
 
@@ -297,7 +307,64 @@ void remove_hunt(const char *hunt_id) {
     printf("Hunt '%s' removed.\n", hunt_id);
 }
 
-
-
-//easter egg
-//toptop paste
+void list_hunts()
+{
+    // Open the current directory
+    // and check if it was opened successfully
+    // Check if the directory exists
+    DIR *dir = opendir(".");
+    if (!dir)
+    {
+        printf("Error opening the directory\n");
+        exit(-1);
+    }
+    struct dirent *entry;
+    // Read the directory entries
+    // and check if it was read successfully
+    // Loop through the directory entries
+    // and check if the entry is a directory
+    while ((entry = readdir(dir)) != NULL)
+    {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+        {
+            continue;
+        }
+        struct stat st;
+        if (stat(entry->d_name, &st) == -1 || !S_ISDIR(st.st_mode))
+        {
+            continue;
+        }
+        // Check if the directory contains a treasure file
+        char path[50];
+        snprintf(path, sizeof(path), "%s/treasures.dat", entry->d_name);
+        // Check if the file exists
+        int fd = open(path, O_RDONLY);
+        if (fd < 0)
+        {
+            continue;
+        }
+        Treasure t;
+        int count = 0;
+        ssize_t r;
+        // Read the treasures from the file
+        // and count the number of treasures
+        while ((r = read(fd, &t, sizeof(Treasure))) == sizeof(Treasure))
+        {
+            count++;
+        }
+        // If r is -1, it means there was an error reading the file
+        if (r == -1)
+        {
+            perror("Error reading treasure file");
+            close(fd);
+            exit(-1);
+        }
+        if (close(fd) < 0)
+        {
+            printf("Error closing the file\n");
+            exit(-1);
+        }
+        printf("Hunt: %s -> %d treasure%s\n", entry->d_name, count, count == 1 ? "" : "s");
+    }
+    closedir(dir);
+}
