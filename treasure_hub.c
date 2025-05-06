@@ -7,9 +7,9 @@
 DWORD monitor_pid = -1;
 HANDLE hMonitorProcess = NULL;
 
+// Pornim procesul monitor
 void startMonitor(void)
 {
-    // Crează un nou proces care va rula programul monitor
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
 
@@ -17,32 +17,32 @@ void startMonitor(void)
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
 
-    // Folosim CreateProcess pentru a lansa monitorul
+    // Creăm procesul monitor folosind CreateProcess
     if (!CreateProcess(
-            "monitor.exe",   // numele programului de lansat
-            NULL,            // parametri (dacă sunt)
-            NULL,            // atribut de securitate proces
-            NULL,            // atribut de securitate fir
-            FALSE,           // nu dorim să moștenim handle-urile
-            0,               // niciun flag special
-            NULL,            // variabile de mediu
-            NULL,            // directorul curent
-            &si,             // informații de startup
-            &pi))            // informații de proces
+            "monitor.exe",   // Numele programului de monitorizat
+            NULL,            // Parametrii (nu sunt necesari aici)
+            NULL,            // Atribute de securitate proces
+            NULL,            // Atribute de securitate fir
+            FALSE,           // Nu dorim să moștenim handle-urile
+            0,               // Fără flaguri speciale
+            NULL,            // Variabile de mediu
+            NULL,            // Directorul curent
+            &si,             // Informațiile pentru crearea procesului
+            &pi))            // Informațiile procesului creat
     {
         printf("CreateProcess failed (%d).\n", GetLastError());
         exit(-1);
     }
 
-    monitor_pid = pi.dwProcessId;
-    hMonitorProcess = pi.hProcess;  // salvăm handle-ul procesului
+    monitor_pid = pi.dwProcessId;  // Salvăm PID-ul procesului monitor
+    hMonitorProcess = pi.hProcess;  // Salvăm handle-ul procesului
 
     printf("Monitor started with PID %d\n", monitor_pid);
 }
 
+// Funcție pentru a verifica terminarea procesului monitor
 void handle_sigchld(int sig)
 {
-    // Înlocuim semnalizarea POSIX cu funcționalități Windows
     DWORD dwExitCode;
     if (monitor_pid != -1 && hMonitorProcess != NULL)
     {
@@ -50,9 +50,10 @@ void handle_sigchld(int sig)
         {
             if (dwExitCode != STILL_ACTIVE)
             {
+                // Procesul monitor s-a terminat
                 printf("Monitor process has exited.\n");
                 monitor_pid = -1;
-                CloseHandle(hMonitorProcess);
+                CloseHandle(hMonitorProcess);  // Închidem handle-ul procesului
                 hMonitorProcess = NULL;
             }
         }
@@ -62,22 +63,19 @@ void handle_sigchld(int sig)
 int main(void)
 {
     char command[21];
-    // Setăm handler-ul de semnale (Windows nu folosește semnalele POSIX)
-    // Aici, putem să apelăm direct funcțiile de proces pentru a urmări terminația procesului
-    // pentru Windows nu este nevoie de `sigaction`.
 
+    // Loop pentru citirea comenzilor utilizatorului
     while (1)
     {
-        // Afișăm promptul și așteptăm input
         printf(">>> ");
         fflush(stdout);
-        // Citim comanda de la utilizator
         if (!fgets(command, sizeof(command), stdin))
         {
             break;
         }
-        command[strcspn(command, "\n")] = '\0';
+        command[strcspn(command, "\n")] = '\0';  // Eliminăm newline-ul de la finalul comenzii
 
+        // Verificăm ce comandă a introdus utilizatorul
         if (strcmp(command, "start_monitor") == 0)
         {
             if (monitor_pid != -1)
@@ -97,7 +95,7 @@ int main(void)
             }
             else
             {
-                // Creăm fișierul pentru parametrii
+                // Scriem parametrii pentru listarea comorilor
                 FILE *f = fopen("prm.txt", "w");
                 if (!f)
                 {
@@ -106,8 +104,6 @@ int main(void)
                 }
                 fprintf(f, "--list\n");
                 fclose(f);
-                // Trimitem un semnal (nu există semnal POSIX, dar putem folosi Windows signaling)
-                // În acest exemplu, pur și simplu așteptăm că monitorul să fie gata.
             }
         }
         else if (strcmp(command, "stop_monitor") == 0)
@@ -118,7 +114,7 @@ int main(void)
             }
             else
             {
-                // Încercăm să terminăm procesul monitorului
+                // Încercăm să oprim procesul monitor
                 if (TerminateProcess(hMonitorProcess, 0) == 0)
                 {
                     printf("Failed to stop the monitor.\n");
@@ -140,7 +136,7 @@ int main(void)
             }
             else
             {
-                break;
+                break;  // Ieșim din program
             }
         }
         else if (strcmp(command, "help") == 0)
@@ -152,7 +148,6 @@ int main(void)
             printf("  view_treasure     - View a specific treasure\n");
             printf("  stop_monitor      - Stop the monitor process\n");
             printf("  exit              - Exit this program (if monitor is stopped)\n");
-
         }
         else
         {
