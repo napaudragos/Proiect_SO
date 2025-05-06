@@ -147,9 +147,12 @@ int main(void)
         {
             printf("Available commands:\n");
             printf("  start_monitor     - Start the monitor process\n");
+            printf("  list_hunts        - List all available hunts\n");
             printf("  list_treasures    - List treasures in a hunt\n");
+            printf("  view_treasure     - View a specific treasure\n");
             printf("  stop_monitor      - Stop the monitor process\n");
-            printf("  exit              - Exit this program\n");
+            printf("  exit              - Exit this program (if monitor is stopped)\n");
+
         }
         else
         {
