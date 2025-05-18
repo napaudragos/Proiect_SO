@@ -1,67 +1,136 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <windows.h>
+#include <unistd.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <dirent.h>
 
-DWORD monitor_pid = -1;
-HANDLE hMonitorProcess = NULL;
+pid_t monitor_pid = -1;
+int pipe_fd[2] = {-1, -1}; // [0] citire, [1] scriere
 
-// Functie pentru a lansa procesul monitor
 void startMonitor(void)
 {
-    STARTUPINFO si;
-    PROCESS_INFORMATION pi;
-
-    ZeroMemory(&si, sizeof(si));
-    si.cb = sizeof(si);
-    ZeroMemory(&pi, sizeof(pi));
-
-    // Creăm procesul monitor folosind CreateProcess
-    if (!CreateProcess(
-            "monitor.exe",   // Numele programului de monitorizat
-            NULL,            // Parametrii (nu sunt necesari aici)
-            NULL,            // Atribute de securitate proces
-            NULL,            // Atribute de securitate fir
-            FALSE,           // Nu dorim să moștenim handle-urile
-            0,               // Fără flaguri speciale
-            NULL,            // Variabile de mediu
-            NULL,            // Directorul curent
-            &si,             // Informațiile pentru crearea procesului
-            &pi))            // Informațiile procesului creat
-    {
-        printf("CreateProcess failed (%d).\n", GetLastError());
-        exit(-1);
+    if (monitor_pid != -1) {
+        printf("Monitor already running with PID %d\n", monitor_pid);
+        return;
     }
 
-    monitor_pid = pi.dwProcessId;  // Salvăm PID-ul procesului monitor
-    hMonitorProcess = pi.hProcess;  // Salvăm handle-ul procesului
+    if (pipe(pipe_fd) == -1) {
+        perror("pipe");
+        exit(EXIT_FAILURE);
+    }
 
-    printf("Monitor started with PID %d\n", monitor_pid);
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("fork");
+        exit(EXIT_FAILURE);
+    }
+    if (pid == 0) {
+        // Proces copil: execută monitorul
+        close(pipe_fd[0]); // copilul nu citește din pipe
+        char fd_arg[16];
+        snprintf(fd_arg, sizeof(fd_arg), "%d", pipe_fd[1]);
+        execl("./monitor", "./monitor", fd_arg, NULL);
+        perror("execl");
+        exit(EXIT_FAILURE);
+    } else {
+        // Proces părinte
+        close(pipe_fd[1]); // părintele nu scrie în pipe
+        monitor_pid = pid;
+        printf("Monitor started with PID %d\n", monitor_pid);
+    }
 }
 
-// Funcție pentru a verifica terminarea procesului monitor
+void stopMonitor(void)
+{
+    if (monitor_pid == -1) {
+        printf("Monitor not started.\n");
+        return;
+    }
+    kill(monitor_pid, SIGTERM);
+    waitpid(monitor_pid, NULL, 0);
+    monitor_pid = -1;
+    printf("Monitor stopped.\n");
+}
+
 void checkMonitorStatus(void)
 {
-    DWORD dwExitCode;
-    if (monitor_pid != -1 && hMonitorProcess != NULL)
-    {
-        if (GetExitCodeProcess(hMonitorProcess, &dwExitCode))
-        {
-            if (dwExitCode != STILL_ACTIVE)
-            {
-                // Procesul monitor s-a terminat
-                printf("Monitor process has exited.\n");
-                monitor_pid = -1;
-                CloseHandle(hMonitorProcess);  // Închidem handle-ul procesului
-                hMonitorProcess = NULL;
-            }
+    if (monitor_pid != -1) {
+        int status;
+        pid_t result = waitpid(monitor_pid, &status, WNOHANG);
+        if (result == -1) {
+            perror("waitpid");
+            monitor_pid = -1;
+        } else if (result > 0) {
+            printf("Monitor process has exited.\n");
+            monitor_pid = -1;
         }
     }
 }
 
+void read_from_monitor() {
+    char buffer[1024];
+    ssize_t n;
+    // Citim tot ce a scris monitorul în pipe (non-blocking simplu)
+    while ((n = read(pipe_fd[0], buffer, sizeof(buffer)-1)) > 0) {
+        buffer[n] = '\0';
+        printf("%s", buffer);
+        if (n < (ssize_t)sizeof(buffer)-1) break;
+    }
+}
+
+void calculate_score_all_hunts() {
+    DIR *dir = opendir(".");
+    if (!dir) {
+        perror("opendir");
+        return;
+    }
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type != DT_DIR) continue;
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
+
+        char treasures_path[512];
+        snprintf(treasures_path, sizeof(treasures_path), "%s/treasures.dat", entry->d_name);
+
+        if (access(treasures_path, F_OK) != 0) continue;
+
+        int fd[2];
+        if (pipe(fd) == -1) {
+            perror("pipe");
+            continue;
+        }
+        pid_t pid = fork();
+        if (pid == 0) {
+            // copil: redirectează stdout către fd[1]
+            close(fd[0]);
+            dup2(fd[1], STDOUT_FILENO);
+            execl("./calculate_score", "./calculate_score", treasures_path, NULL);
+            perror("execl");
+            exit(1);
+        } else if (pid > 0) {
+            // părinte: citește rezultatul
+            close(fd[1]);
+            char buf[1024];
+            ssize_t n;
+            printf("Scores for hunt %s:\n", entry->d_name);
+            while ((n = read(fd[0], buf, sizeof(buf)-1)) > 0) {
+                buf[n] = 0;
+                printf("%s", buf);
+            }
+            close(fd[0]);
+            waitpid(pid, NULL, 0);
+        }
+    }
+    closedir(dir);
+}
+
 int main(void)
 {
-    char command[21];
+    char command[64];
 
     while (1)
     {
@@ -75,14 +144,7 @@ int main(void)
 
         if (strcmp(command, "start_monitor") == 0)
         {
-            if (monitor_pid != -1)
-            {
-                printf("Monitor already running with PID %d\n", monitor_pid);
-            }
-            else
-            {
-                startMonitor();
-            }
+            startMonitor();
         }
         else if (strcmp(command, "list_treasures") == 0)
         {
@@ -107,7 +169,8 @@ int main(void)
 
                 fprintf(f, "--list\n%s\n", hunt_id);
                 fclose(f);
-                // Monitorul ar trebui să citească din fișierul prm.txt pentru a procesa comanda
+                kill(monitor_pid, SIGUSR1);
+                read_from_monitor();
             }
         }
         else if (strcmp(command, "view_treasure") == 0)
@@ -138,7 +201,8 @@ int main(void)
 
                 fprintf(f, "--view\n%s\n%s\n", hunt_id, treasure_id);
                 fclose(f);
-                // Monitorul ar trebui să citească din fișierul prm.txt pentru a procesa comanda
+                kill(monitor_pid, SIGUSR1);
+                read_from_monitor();
             }
         }
         else if (strcmp(command, "list_hunts") == 0)
@@ -158,30 +222,17 @@ int main(void)
 
                 fprintf(f, "--list_hunts\n");
                 fclose(f);
-                // Monitorul ar trebui să citească din fișierul prm.txt pentru a procesa comanda
+                kill(monitor_pid, SIGUSR1);
+                read_from_monitor();
             }
         }
         else if (strcmp(command, "stop_monitor") == 0)
         {
-            if (monitor_pid == -1)
-            {
-                printf("Monitor not started.\n");
-            }
-            else
-            {
-                // Încercăm să oprim procesul monitor
-                if (TerminateProcess(hMonitorProcess, 0) == 0)
-                {
-                    printf("Failed to stop the monitor.\n");
-                }
-                else
-                {
-                    printf("Monitor stopped.\n");
-                }
-                CloseHandle(hMonitorProcess);
-                hMonitorProcess = NULL;
-                monitor_pid = -1;
-            }
+            stopMonitor();
+        }
+        else if (strcmp(command, "calculate_score") == 0)
+        {
+            calculate_score_all_hunts();
         }
         else if (strcmp(command, "exit") == 0)
         {
@@ -202,6 +253,7 @@ int main(void)
             printf("  list_treasures    - List treasures in a hunt\n");
             printf("  view_treasure     - View a specific treasure\n");
             printf("  stop_monitor      - Stop the monitor process\n");
+            printf("  calculate_score   - Calculate user scores for all hunts\n");
             printf("  exit              - Exit this program (if monitor is stopped)\n");
         }
         else
@@ -209,11 +261,8 @@ int main(void)
             printf("Unknown command. Type 'help' for list of commands.\n");
         }
 
-        // Verificăm starea procesului monitor
         checkMonitorStatus();
     }
 
     return 0;
 }
-
-
