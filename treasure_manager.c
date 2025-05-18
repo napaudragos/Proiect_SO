@@ -366,3 +366,4 @@ void list_hunts()
     }
     closedir(dir);
 }
+
