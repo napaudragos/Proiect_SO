@@ -28,9 +28,9 @@ typedef struct {
 
 void log_operation(const char *hunt_id, const char *message) {
     char log_path[MAX_PATHH];
-    snprintf(log_path, sizeof(log_path), "%s/logged_hunt", hunt_id);
+    snprintf(log_path, sizeof(log_path), "%s/logged_hunt", hunt_id); //construieste calea catre fisierul de log
 
-    int fd = open(log_path, O_WRONLY | O_CREAT | O_APPEND, 0644);
+    int fd = open(log_path, O_WRONLY | O_CREAT | O_APPEND, 0644); //deschide sau creaza fisierul de log
     if (fd == -1) {
         perror("open (logged_hunt)");
         return;
@@ -44,10 +44,10 @@ void create_symlink(const char *hunt_id) {
     char target[MAX_PATHH];
     char link_name[MAX_PATHH];
 
-    snprintf(target, sizeof(target), "%s/logged_hunt", hunt_id);
-    snprintf(link_name, sizeof(link_name), "logged_hunt-%s", hunt_id);
+    snprintf(target, sizeof(target), "%s/logged_hunt", hunt_id); // target = hunt_id/logged_hunt
+    snprintf(link_name, sizeof(link_name), "logged_hunt-%s", hunt_id); // link_name = logged_hunt-hunt_id
 
-    unlink(link_name); // remove old symlink if exists
+    unlink(link_name); // sterge legatura veche
     if (symlink(target, link_name) == -1) {
         perror("symlink");
     } else {
@@ -56,13 +56,15 @@ void create_symlink(const char *hunt_id) {
 }
 
 void add_treasure(const char* hunt_id) {
-    char dir_path[MAX_PATHH];
-    char file_path[MAX_PATHH];
+    char dir_path[MAX_PATHH];  // numele directorului
+    char file_path[MAX_PATHH]; // calea comorilor
     Treasure t;
 
-    snprintf(dir_path, sizeof(dir_path), "%s", hunt_id);
-    if (snprintf(file_path, sizeof(file_path), "%s/treasures.dat", dir_path) >= (int)sizeof(file_path)) {
-        fprintf(stderr, "File path too long\n");
+    snprintf(dir_path, sizeof(dir_path), "%s", hunt_id); // dir_path = hunt_id
+
+    if (snprintf(file_path, sizeof(file_path), "%s/treasures.dat", dir_path) >= (int)sizeof(file_path)) //construieste file_path
+    {
+        fprintf(stderr, "File path too long\n");  //verifica dimensinea bufferului
         exit(EXIT_FAILURE);
     }
 
@@ -112,13 +114,13 @@ void add_treasure(const char* hunt_id) {
     }
     getchar();
 
-    int fd = open(file_path, O_WRONLY | O_CREAT | O_APPEND, 0644);
+    int fd = open(file_path, O_WRONLY | O_CREAT | O_APPEND, 0644); //deschide sau creaza fisierul 
     if (fd == -1) {
         perror("open (treasures.dat)");
         exit(EXIT_FAILURE);
     }
 
-    if (write(fd, &t, sizeof(Treasure)) != sizeof(Treasure)) {
+    if (write(fd, &t, sizeof(Treasure)) != sizeof(Treasure)) { //scrie in fisier
         perror("write");
         close(fd);
         exit(EXIT_FAILURE);
@@ -135,24 +137,24 @@ void add_treasure(const char* hunt_id) {
 
 void list_treasures(const char *hunt_id) {
     char file_path[MAX_PATHH];
-    snprintf(file_path, sizeof(file_path), "%s/treasures.dat", hunt_id);
+    snprintf(file_path, sizeof(file_path), "%s/treasures.dat", hunt_id); //construieste calea fisierului
 
     struct stat st;
-    if (stat(file_path, &st) == -1) {
+    if (stat(file_path, &st) == -1) { //verifica daca fisierul exista inainte de a-l deschide 
         perror("stat");
         return;
     }
 
     printf("Hunt: %s\nFile Size: %ld bytes\nLast Modified: %s", hunt_id, st.st_size, ctime(&st.st_mtime));
 
-    int fd = open(file_path, O_RDONLY);
+    int fd = open(file_path, O_RDONLY); //deschide fisierul doar pt citire
     if (fd == -1) {
         perror("open (treasures.dat)");
         return;
     }
 
     Treasure t;
-    while (read(fd, &t, sizeof(Treasure)) == sizeof(Treasure)) {
+    while (read(fd, &t, sizeof(Treasure)) == sizeof(Treasure)) { //afiseaza continutul fisierului
         printf("\nTreasure ID: %d\nUsername: %s\nCoordinates: %.2f, %.2f\nClue: %s\nValue: %d\n",
                t.treasure_id, t.username, t.latitude, t.longitude, t.clue, t.value);
     }
@@ -161,18 +163,18 @@ void list_treasures(const char *hunt_id) {
 }
 
 void view_treasure(const char *hunt_id, int treasure_id) {
-    char file_path[MAX_PATHH];
-    snprintf(file_path, sizeof(file_path), "%s/treasures.dat", hunt_id);
+    char file_path[MAX_PATHH]; 
+    snprintf(file_path, sizeof(file_path), "%s/treasures.dat", hunt_id); //construieste calea fisierului
 
-    int fd = open(file_path, O_RDONLY);
+    int fd = open(file_path, O_RDONLY); //deschide fisierul doar pt citire
     if (fd == -1) {
         perror("open (treasures.dat)");
         return;
     }
 
     Treasure t;
-    while (read(fd, &t, sizeof(Treasure)) == sizeof(Treasure)) {
-        if (t.treasure_id == treasure_id) {
+    while (read(fd, &t, sizeof(Treasure)) == sizeof(Treasure)) { // parcurge fisierul
+        if (t.treasure_id == treasure_id) { //cauta comora cu id-ul dat
             printf("Treasure ID: %d\nUsername: %s\nCoordinates: %.2f, %.2f\nClue: %s\nValue: %d\n",
                    t.treasure_id, t.username, t.latitude, t.longitude, t.clue, t.value);
             close(fd);
@@ -186,31 +188,32 @@ void view_treasure(const char *hunt_id, int treasure_id) {
 
 void remove_treasure(const char *hunt_id, int treasure_id) {
     char file_path[MAX_PATHH];
-    snprintf(file_path, sizeof(file_path), "%s/treasures.dat", hunt_id);
+    snprintf(file_path, sizeof(file_path), "%s/treasures.dat", hunt_id); //construieste calea fisierului
 
-    int fd = open(file_path, O_RDWR);
+    int fd = open(file_path, O_RDWR);  //deschide fisierul pentru citire si scriere
     if (fd == -1) {
         perror("open (treasures.dat)");
         return;
     }
 
     char temp_path[MAX_PATHH];
-    snprintf(temp_path, sizeof(temp_path), "%s/temp_treasures.dat", hunt_id);
-    int temp_fd = open(temp_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    snprintf(temp_path, sizeof(temp_path), "%s/temp_treasures.dat", hunt_id); // construieste calea fisierului temporar
+
+    int temp_fd = open(temp_path, O_WRONLY | O_CREAT | O_TRUNC, 0644); // deschide sau creaza fisierul temporar 
     if (temp_fd == -1) {
-        perror("open (temp file)");
+        perror("open (temp file)"); //daca e eroare inchide si fisierul principal
         close(fd);
         return;
     }
 
     Treasure t;
     int treasure_found = 0;
-    while (read(fd, &t, sizeof(Treasure)) == sizeof(Treasure)) {
+    while (read(fd, &t, sizeof(Treasure)) == sizeof(Treasure)) { //parcurge fisierul
         if (t.treasure_id == treasure_id) {
             treasure_found = 1;
-            continue;
+            continue; //sare peste scrierea comorii gasite in fisierul temporar
         }
-        if (write(temp_fd, &t, sizeof(Treasure)) != sizeof(Treasure)) {
+        if (write(temp_fd, &t, sizeof(Treasure)) != sizeof(Treasure)) { //scrie in fisierul temporar
             perror("write (temp file)");
             close(fd);
             close(temp_fd);
@@ -223,33 +226,33 @@ void remove_treasure(const char *hunt_id, int treasure_id) {
 
     if (!treasure_found) {
         printf("Treasure with ID %d not found.\n", treasure_id);
-        unlink(temp_path);
+        unlink(temp_path); //sterge fisierul temporar
     } else {
         printf("Treasure with ID %d removed successfully.\n", treasure_id);
-        unlink(file_path);
-        rename(temp_path, file_path);
+        unlink(file_path); //sterge fisierul original
+        rename(temp_path, file_path); //il inlocuieste cu fisierul temporar
     }
 }
 
 void remove_hunt(const char *hunt_id) {
     char file_path[MAX_PATHH];
-    const char *files[] = {
+    const char *files[] = { //un fel de enum pentru fisiere
         "treasures.dat", "logged_hunt", "temp_treasures.dat"
     };
 
-    for (int i = 0; i < sizeof(files)/sizeof(files[0]); i++) {
-        snprintf(file_path, sizeof(file_path), "%s/%s", hunt_id, files[i]);
-        unlink(file_path);
+    for (int i = 0; i < sizeof(files)/sizeof(files[0]); i++) { //sizeof(files)/sizeof(files[0]) returneaza numarul de fisiere din director
+        snprintf(file_path, sizeof(file_path), "%s/%s", hunt_id, files[i]); //creaza calea catre fiecare fisier care urmeaza a fi sters
+        unlink(file_path); // incearca sa stearga fisierul
     }
 
-    if (rmdir(hunt_id) == -1) {
+    if (rmdir(hunt_id) == -1) { //sterge directorul
         perror("rmdir");
         return;
     }
 
-    char link_name[MAX_PATHH];
-    snprintf(link_name, sizeof(link_name), "logged_hunt-%s", hunt_id);
-    if (unlink(link_name) == -1 && errno != ENOENT) {
+    char link_name[MAX_PATHH]; //numere symlinkul
+    snprintf(link_name, sizeof(link_name), "logged_hunt-%s", hunt_id); //creaza numele symlinkului
+    if (unlink(link_name) == -1 && errno != ENOENT) { //sterge symlinkul , ignora eroarea daca nu exista
         perror("unlink (symlink)");
     }
 
@@ -258,26 +261,28 @@ void remove_hunt(const char *hunt_id) {
 
 void list_hunts()
 {
-    DIR *dir = opendir(".");
+    DIR *dir = opendir("."); // deschide directorul curent
     if (!dir)
     {
         perror("opendir");
         exit(EXIT_FAILURE);
     }
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != NULL)
+    struct dirent *entry; // citeste intrarile din director
+    while ((entry = readdir(dir)) != NULL) //parcurge directorul
     {
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
         {
-            continue;
+            continue; //ignora . si .. 
         }
+
         struct stat st;
-        if (stat(entry->d_name, &st) == -1 || !S_ISDIR(st.st_mode))
+        if (stat(entry->d_name, &st) == -1 || !S_ISDIR(st.st_mode)) //obtine informatii despre intrare si verifica daca e director
         {
             continue;
         }
+
         char path[MAX_PATHH];
-        snprintf(path, sizeof(path), "%s/treasures.dat", entry->d_name);
+        snprintf(path, sizeof(path), "%s/treasures.dat", entry->d_name); //construiecte calea catre fisierul treasures.dat
         int fd = open(path, O_RDONLY);
         if (fd < 0)
         {
@@ -286,17 +291,19 @@ void list_hunts()
         Treasure t;
         int count = 0;
         ssize_t r;
-        while ((r = read(fd, &t, sizeof(Treasure))) == sizeof(Treasure))
+        while ((r = read(fd, &t, sizeof(Treasure))) == sizeof(Treasure)) //numara cate comori sunt in fisier
         {
             count++;
         }
-        if (r == -1)
+
+        if (r == -1) //nu s-a putut citi fisierul
         {
             perror("Error reading treasure file");
             close(fd);
             closedir(dir);
             exit(EXIT_FAILURE);
         }
+        
         if (close(fd) < 0)
         {
             perror("close");
