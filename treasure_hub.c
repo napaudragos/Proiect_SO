@@ -8,32 +8,32 @@
 #include <sys/stat.h>
 #include <dirent.h>
 
-pid_t monitor_pid = -1;
+pid_t monitor_pid = -1; // process id monitor (copil)
 int pipe_fd[2] = {-1, -1}; // [0] citire, [1] scriere
 
 void startMonitor(void)
 {
-    if (monitor_pid != -1) {
+    if (monitor_pid != -1) { //verifică dacă monitorul este deja pornit
         printf("Monitor already running with PID %d\n", monitor_pid);
         return;
     }
 
-    if (pipe(pipe_fd) == -1) {
+    if (pipe(pipe_fd) == -1) { //crează un pipe pt comunicare
         perror("pipe");
         exit(EXIT_FAILURE);
     }
 
-    pid_t pid = fork();
+    pid_t pid = fork(); //creaza procesul
     if (pid < 0) {
         perror("fork");
         exit(EXIT_FAILURE);
     }
     if (pid == 0) {
-        // Proces copil: execută monitorul
-        close(pipe_fd[0]); // copilul nu citește din pipe
+        // Proces copil
+        close(pipe_fd[0]); // copilul nu citește din pipe , inchide capătul de citire
         char fd_arg[16];
-        snprintf(fd_arg, sizeof(fd_arg), "%d", pipe_fd[1]);
-        execl("./monitor", "./monitor", fd_arg, NULL);
+        snprintf(fd_arg, sizeof(fd_arg), "%d", pipe_fd[1]); //converteste pipe_fd[1] in string fd_arg
+        execl("./monitor", "./monitor", fd_arg, NULL); //inlocuiește procesul copil cu monitor si transmite argumentul in linie de comanda pt cand se executa monitor
         perror("execl");
         exit(EXIT_FAILURE);
     } else {
@@ -46,25 +46,25 @@ void startMonitor(void)
 
 void stopMonitor(void)
 {
-    if (monitor_pid == -1) {
+    if (monitor_pid == -1) { //verifică dacă monitorul este pornit
         printf("Monitor not started.\n");
         return;
     }
-    kill(monitor_pid, SIGTERM);
-    waitpid(monitor_pid, NULL, 0);
+    kill(monitor_pid, SIGTERM); //transmite semnalul SIGTERM monitorului
+    waitpid(monitor_pid, NULL, 0); //asteaptă terminarea procesului monitor
     monitor_pid = -1;
     printf("Monitor stopped.\n");
 }
 
 void checkMonitorStatus(void)
 {
-    if (monitor_pid != -1) {
+    if (monitor_pid != -1) { //vefifică dacă monitorul este pornit
         int status;
-        pid_t result = waitpid(monitor_pid, &status, WNOHANG);
-        if (result == -1) {
+        pid_t result = waitpid(monitor_pid, &status, WNOHANG); //WNOGANG - permite să verificăm statusul fără a intarzia programul principal    
+        if (result == -1) { //eroare 
             perror("waitpid");
             monitor_pid = -1;
-        } else if (result > 0) {
+        } else if (result > 0) { //monitorul s-a terminat , 0 - inca ruleaza
             printf("Monitor process has exited.\n");
             monitor_pid = -1;
         }
@@ -74,7 +74,6 @@ void checkMonitorStatus(void)
 void read_from_monitor() {
     char buffer[1024];
     ssize_t n;
-    // Citim tot ce a scris monitorul în pipe (non-blocking simplu)
     while ((n = read(pipe_fd[0], buffer, sizeof(buffer)-1)) > 0) {
         buffer[n] = '\0';
         printf("%s", buffer);
@@ -83,36 +82,36 @@ void read_from_monitor() {
 }
 
 void calculate_score_all_hunts() {
-    DIR *dir = opendir(".");
+    DIR *dir = opendir("."); //deschide directorul curent
     if (!dir) {
         perror("opendir");
         return;
     }
     struct dirent *entry;
-    while ((entry = readdir(dir)) != NULL) {
+    while ((entry = readdir(dir)) != NULL) { //parcurge directorul
         if (entry->d_type != DT_DIR) continue;
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue; //ignora . si ..
 
         char treasures_path[512];
-        snprintf(treasures_path, sizeof(treasures_path), "%s/treasures.dat", entry->d_name);
+        snprintf(treasures_path, sizeof(treasures_path), "%s/treasures.dat", entry->d_name); //construiecte calea catre fisierul treasures.dat
 
-        if (access(treasures_path, F_OK) != 0) continue;
+        if (access(treasures_path, F_OK) != 0) continue; //verifică dacă fișierul există
 
-        int fd[2];
+        int fd[2]; // [0] citire, [1] scriere
         if (pipe(fd) == -1) {
             perror("pipe");
             continue;
         }
         pid_t pid = fork();
         if (pid == 0) {
-            // copil: redirectează stdout către fd[1]
-            close(fd[0]);
-            dup2(fd[1], STDOUT_FILENO);
-            execl("./calculate_score", "./calculate_score", treasures_path, NULL);
+            // copil
+            close(fd[0]); // închide capătul de citire
+            dup2(fd[1], STDOUT_FILENO); // redirecționează stdout către capătul de scriere
+            execl("./calculate_score", "./calculate_score", treasures_path, NULL); // execută programul calculate_score
             perror("execl");
             exit(1);
         } else if (pid > 0) {
-            // părinte: citește rezultatul
+            // părinte
             close(fd[1]);
             char buf[1024];
             ssize_t n;
