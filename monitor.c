@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 int out_fd = -1;
 
+
 void handle_SIGTERM(int sig) {
     dprintf(out_fd, "Monitor shutting down...\n");
     exit(0);

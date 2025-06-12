@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 
+
 pid_t monitor_pid = -1; // process id monitor (copil)
 int pipe_fd[2] = {-1, -1}; // [0] citire, [1] scriere
 

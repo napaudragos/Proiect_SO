@@ -4,6 +4,7 @@
 
 #define USERNAME_MAX 32
 
+
 typedef struct {
     int treasure_id;
     char username[USERNAME_MAX];

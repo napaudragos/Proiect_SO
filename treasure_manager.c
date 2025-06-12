@@ -9,6 +9,7 @@
 #include <dirent.h>
 #include <errno.h>
 
+
 #define USERNAME_MAX 32
 #define CLUE_MAX 256
 #define MAX_PATHH 512
